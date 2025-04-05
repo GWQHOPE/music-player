@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>颀颀公主专属音乐盒</title>
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     <style>
@@ -18,6 +18,7 @@
             flex-direction: column;
             -webkit-tap-highlight-color: transparent;
             position: relative;
+            touch-action: manipulation;
         }
 
         /* 主内容区（上方留白） */
@@ -39,7 +40,7 @@
             margin-bottom: 10px;
         }
 
-         /* 底部播放控制条（固定在底部） */
+        /* 底部播放控制条（固定在底部） */
         .player-footer {
             position: fixed;
             bottom: 0;
@@ -118,7 +119,7 @@
         }
 
         .toggle-playlist:hover {
-            background: rgba(172, 208, 238, 0.7);
+            background: rgba(172, 208, 238, 0.9);
             transform: scale(1.1);
         }
 
@@ -140,11 +141,13 @@
         .playlist-container.show {
             bottom: 0;
         }
+
         /* 播放列表内容 */
         .playlist-content {
             height: calc(100% - 40px);
             overflow-y: auto;
             padding-right: 10px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .playlist-title {
@@ -162,6 +165,7 @@
             transition: all 0.3s;
             display: flex;
             align-items: center;
+            position: relative;
         }
 
         .song-item:hover {
@@ -173,22 +177,58 @@
             font-weight: bold;
         }
 
+        /* 拖拽相关样式 */
+        .song-item.dragging {
+            opacity: 0.5;
+            background: rgba(190, 224, 242, 0.3);
+        }
+
+        .song-item.placeholder {
+            border: 2px dashed rgba(190, 224, 242, 0.5);
+            background: transparent;
+            height: 40px;
+            margin: 5px 0;
+        }
+
+        .drag-handle {
+            cursor: move;
+            margin-right: 10px;
+            color: #BEE0F2;
+            touch-action: none;
+            user-select: none;
+        }
+
+        /* 拖拽克隆元素样式 */
+        .drag-clone {
+            position: fixed !important;
+            z-index: 1000;
+            opacity: 0.8;
+            background: rgba(0, 0, 0, 0.7);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            width: 90% !important;
+            left: 50% !important;
+            top: 50% !important;
+            margin: 0 !important;
+        }
+
         /* 滚动条样式 */
-        .playlist-container::-webkit-scrollbar {
+        .playlist-content::-webkit-scrollbar {
             width: 6px;
         }
 
-        .playlist-container::-webkit-scrollbar-track {
+        .playlist-content::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.1);
             border-radius: 3px;
         }
 
-        .playlist-container::-webkit-scrollbar-thumb {
+        .playlist-content::-webkit-scrollbar-thumb {
             background: #ACD0EE;
             border-radius: 3px;
         }
 
-         /* 关闭按钮 */
+        /* 关闭按钮 */
         .close-playlist {
             position: absolute;
             top: 10px;
@@ -199,6 +239,7 @@
             font-size: 1.5rem;
             cursor: pointer;
         }
+
         /* 播放模式选择器 */
         .play-mode-selector {
             display: flex;
@@ -206,6 +247,7 @@
             margin-bottom: 15px;
             gap: 10px;
         }
+
         .play-mode-btn {
             background: rgba(172, 208, 238, 0.3);
             border: 1px solid #ACD0EE;
@@ -217,16 +259,10 @@
             font-size: 0.8rem;
             transition: all 0.3s;
         }
+
         .play-mode-btn.active {
             background: rgba(172, 208, 238, 0.7);
             font-weight: bold;
-        }
-
-        /* 拖拽手柄 */
-        .drag-handle {
-            cursor: move;
-            margin-right: 10px;
-            color: #BEE0F2;
         }
 
         /* 响应式调整 */
@@ -240,16 +276,21 @@
             .player-footer {
                 padding: 10px 0;
             }
+            .playlist-container {
+                height: 70vh;
+                padding: 15px;
+            }
+            .song-item {
+                padding: 10px 8px;
+            }
         }
-
     </style>
 </head>
 <body>
-    <div class="content-container">
+    <div class="main-content">
         <div class="welcome-text">颀颀宝宝的五月天音乐盒</div>
     </div>
 
-    <!-- 固定在底部的播放控制条 -->
     <div class="player-footer">
         <div class="now-playing">
             <div class="song-title">选择一首歌曲</div>
@@ -260,10 +301,8 @@
         </div>
     </div>
 
-     <!-- 播放列表按钮（圆形浮动按钮） -->
-    <button class="toggle-playlist">≡</button>
+    <button class="toggle-playlist">列表</button>
 
-    <!-- 播放列表（从底部弹出） -->
     <div class="playlist-container" id="playlist-container">
         <button class="close-playlist">×</button>
         <div class="playlist-title">播放列表</div>
@@ -274,7 +313,9 @@
             <button class="play-mode-btn" data-mode="random">随机播放</button>
         </div>
 
-        <div class="playlist-content" id="playlist"></div>
+        <div class="playlist-content" id="playlist-content">
+            <!-- 播放列表内容将通过JavaScript动态生成 -->
+        </div>
     </div>
 
     <script>
@@ -785,7 +826,7 @@
          // 初始化播放器
         document.addEventListener('DOMContentLoaded', function() {
             const player = document.getElementById('music-player');
-            const playlist = document.getElementById('playlist');
+            const playlist = document.getElementById('playlist-content');
             const playlistContainer = document.getElementById('playlist-container');
             const toggleBtn = document.querySelector('.toggle-playlist');
             const closeBtn = document.querySelector('.close-playlist');
@@ -795,13 +836,21 @@
 
             let currentPlayMode = 'order'; // 默认顺序播放
             let shuffledPlaylist = []; // 随机播放时的播放列表
-            let isDragging = false;
-            let dragItem = null;
-            let dragStartIndex = 0;
+            let currentSongIndex = 0; // 当前播放歌曲索引
+            let dragItem = null; // 当前拖拽的元素
+            let dragStartIndex = 0; // 拖拽开始时的索引
+            let placeholder = null; // 拖拽占位符
+            let touchStartY = 0; // 触摸开始Y坐标
+            let touchStartIndex = 0; // 触摸开始时的索引
 
             // 转换路径为完整URL
             songs.forEach(song => {
-                song.url = new URL(song.path, window.location.href).href;
+                try {
+                    song.url = new URL(song.path, window.location.href).href;
+                } catch (e) {
+                    console.error("歌曲路径错误:", song.path, e);
+                    song.url = song.path; // 回退到原始路径
+                }
             });
 
             // 生成播放列表
@@ -812,7 +861,6 @@
                 currentSongs.forEach((song, index) => {
                     const songItem = document.createElement('div');
                     songItem.className = 'song-item';
-                    songItem.draggable = true;
                     songItem.dataset.index = index;
 
                     songItem.innerHTML = `
@@ -820,102 +868,270 @@
                         <span class="song-info">${index + 1}. ${song.title} - ${song.artist}</span>
                     `;
 
+                    // 点击播放歌曲
                     songItem.addEventListener('click', function(e) {
                         // 如果点击的是拖拽手柄，则不触发播放
                         if (e.target.classList.contains('drag-handle')) return;
 
-                        playSong(index);
+                        currentSongIndex = index;
+                        playSong(currentSongIndex);
                         playlistContainer.classList.remove('show');
                     });
 
-                    // 拖拽相关事件
-                    songItem.addEventListener('dragstart', function() {
-                        dragItem = this;
-                        dragStartIndex = parseInt(this.dataset.index);
-                        setTimeout(() => this.classList.add('dragging'), 0);
-                    });
+                    // 为电脑添加拖拽事件
+                    addDragEvents(songItem);
 
-                    songItem.addEventListener('dragend', function() {
-                        this.classList.remove('dragging');
-                        dragItem = null;
-                    });
+                    // 为手机添加触摸事件
+                    addTouchEvents(songItem);
 
                     playlist.appendChild(songItem);
                 });
 
-                // 添加拖拽放置区域事件
-                playlist.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    if (!dragItem) return;
+                // 更新当前播放歌曲的高亮状态
+                updateActiveSong();
+            }
 
-                    const afterElement = getDragAfterElement(playlist, e.clientY);
-                    const currentElement = document.querySelector('.dragging');
+            // 为电脑添加拖拽事件
+            function addDragEvents(item) {
+                item.draggable = true;
 
-                    if (afterElement == null) {
-                        playlist.appendChild(currentElement);
-                    } else {
-                        playlist.insertBefore(currentElement, afterElement);
-                    }
+                item.addEventListener('dragstart', function(e) {
+                    dragItem = this;
+                    dragStartIndex = parseInt(this.dataset.index);
+                    setTimeout(() => this.classList.add('dragging'), 0);
+                    e.dataTransfer.setData('text/plain', ''); // 必须设置一些数据才能拖拽
                 });
 
-                playlist.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    if (!dragItem) return;
-
-                    const dragEndIndex = Array.from(playlist.children).indexOf(dragItem);
-                    if (dragStartIndex !== dragEndIndex && dragEndIndex >= 0) {
-                        // 更新歌曲顺序
-                        if (currentPlayMode === 'random') {
-                            const [movedItem] = shuffledPlaylist.splice(dragStartIndex, 1);
-                            shuffledPlaylist.splice(dragEndIndex, 0, movedItem);
-                        } else {
-                            const [movedItem] = songs.splice(dragStartIndex, 1);
-                            songs.splice(dragEndIndex, 0, movedItem);
-                        }
-
-                        // 重新生成播放列表
-                        generatePlaylist();
-
-                        // 保持当前播放歌曲的高亮状态
-                        const currentItem = document.querySelector('.song-item.active');
-                        if (currentItem) {
-                            const currentIndex = parseInt(currentItem.dataset.index);
-                            if (currentIndex >= 0) {
-                                const newItems = document.querySelectorAll('.song-item');
-                                newItems[currentIndex].classList.add('active');
-                            }
-                        }
-                    }
+                item.addEventListener('dragend', function() {
+                    this.classList.remove('dragging');
+                    dragItem = null;
                 });
             }
 
-            // 播放指定索引的歌曲
-            function playSong(index) {
-                const currentSongs = currentPlayMode === 'random' ? shuffledPlaylist : songs;
-                if (index >= currentSongs.length) return;
+            // 为手机添加触摸事件
+            function addTouchEvents(item) {
+                let startY, startX;
+                let isDragging = false;
+                let holdTimeout;
+                const dragThreshold = 10; // 拖动阈值
+                const holdThreshold = 300; // 长按阈值(毫秒)
 
-                const song = currentSongs[index];
-                player.src = song.url;
-                songTitle.textContent = song.title;
-                songArtist.textContent = song.artist;
+                item.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    startY = e.touches[0].clientY;
+                    startX = e.touches[0].clientX;
+                    touchStartIndex = parseInt(this.dataset.index);
+                    isDragging = false;
 
-                // 更新高亮状态
-                document.querySelectorAll('.song-item').forEach(item => {
-                    item.classList.remove('active');
+                    // 设置长按计时器
+                    holdTimeout = setTimeout(() => {
+                        isDragging = true;
+                        startDrag(this, startY);
+                    }, holdThreshold);
+                }, { passive: false });
+
+                item.addEventListener('touchmove', function(e) {
+                    e.preventDefault();
+                    if (!holdTimeout) return;
+
+                    const moveY = e.touches[0].clientY;
+                    const moveX = e.touches[0].clientX;
+
+                    // 检查是否达到拖动阈值
+                    if (Math.abs(moveY - startY) > dragThreshold || Math.abs(moveX - startX) > dragThreshold) {
+                        clearTimeout(holdTimeout);
+                        holdTimeout = null;
+                        isDragging = true;
+                        startDrag(this, startY);
+                    }
+
+                    if (isDragging && dragItem) {
+                        updateDragPosition(moveY);
+                    }
+                }, { passive: false });
+
+                item.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    clearTimeout(holdTimeout);
+                    holdTimeout = null;
+
+                    if (isDragging && dragItem) {
+                        endDrag();
+                    } else {
+                        // 普通点击处理
+                        const touchEndIndex = parseInt(this.dataset.index);
+                        if (touchStartIndex === touchEndIndex) {
+                            currentSongIndex = touchEndIndex;
+                            playSong(currentSongIndex);
+                            playlistContainer.classList.remove('show');
+                        }
+                    }
+
+                    isDragging = false;
+                }, { passive: false });
+            }
+
+            // 开始拖拽（手机专用）
+            function startDrag(item, y) {
+                dragItem = item;
+                dragStartIndex = parseInt(item.dataset.index);
+                item.classList.add('dragging');
+
+                // 创建占位符
+                placeholder = document.createElement('div');
+                placeholder.className = 'song-item placeholder';
+                item.parentNode.insertBefore(placeholder, item.nextSibling);
+
+                // 创建拖拽克隆元素
+                const clone = item.cloneNode(true);
+                clone.id = 'drag-clone';
+                clone.classList.add('drag-clone');
+                clone.style.top = `${y}px`;
+                document.body.appendChild(clone);
+
+                // 隐藏原始元素
+                item.style.opacity = '0';
+            }
+
+            // 更新拖拽位置（手机专用）
+            function updateDragPosition(y) {
+                const clone = document.getElementById('drag-clone');
+                if (!clone) return;
+
+                // 更新克隆元素位置
+                clone.style.top = `${y}px`;
+
+                // 计算拖拽后的位置
+                const items = Array.from(playlist.children)
+                    .filter(child => !child.classList.contains('placeholder') && !child.classList.contains('dragging'));
+
+                let closestItem = null;
+                let closestDistance = Infinity;
+
+                items.forEach(item => {
+                    const rect = item.getBoundingClientRect();
+                    const distance = Math.abs(y - (rect.top + rect.height / 2));
+
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestItem = item;
+                    }
                 });
 
-                const songItems = document.querySelectorAll('.song-item');
-                if (songItems[index]) {
-                    songItems[index].classList.add('active');
+                // 移动占位符
+                if (closestItem) {
+                    const rect = closestItem.getBoundingClientRect();
+                    if (y > rect.top + rect.height / 2) {
+                        playlist.insertBefore(placeholder, closestItem.nextSibling);
+                    } else {
+                        playlist.insertBefore(placeholder, closestItem);
+                    }
+                } else if (items.length > 0) {
+                    // 处理列表顶部和底部的情况
+                    const firstItem = items[0];
+                    const rect = firstItem.getBoundingClientRect();
+                    if (y < rect.top + rect.height / 2) {
+                        playlist.insertBefore(placeholder, firstItem);
+                    } else {
+                        playlist.appendChild(placeholder);
+                    }
+                }
+            }
+
+            // 结束拖拽（手机专用）
+            function endDrag() {
+                if (!dragItem) return;
+
+                const clone = document.getElementById('drag-clone');
+                if (clone) clone.remove();
+
+                // 获取拖拽结束位置
+                const items = Array.from(playlist.children)
+                    .filter(child => !child.classList.contains('dragging'));
+                const dragEndIndex = items.indexOf(placeholder);
+
+                if (dragEndIndex >= 0 && dragStartIndex !== dragEndIndex) {
+                    // 更新歌曲顺序
+                    if (currentPlayMode === 'random') {
+                        const [movedItem] = shuffledPlaylist.splice(dragStartIndex, 1);
+                        shuffledPlaylist.splice(dragEndIndex, 0, movedItem);
+                    } else {
+                        const [movedItem] = songs.splice(dragStartIndex, 1);
+                        songs.splice(dragEndIndex, 0, movedItem);
+                    }
+
+                    // 更新当前歌曲索引
+                    if (currentSongIndex === dragStartIndex) {
+                        currentSongIndex = dragEndIndex;
+                    } else if (currentSongIndex > dragStartIndex && currentSongIndex <= dragEndIndex) {
+                        currentSongIndex--;
+                    } else if (currentSongIndex < dragStartIndex && currentSongIndex >= dragEndIndex) {
+                        currentSongIndex++;
+                    }
+
+                    // 重新生成播放列表
+                    generatePlaylist();
+                } else {
+                    // 恢复原始状态
+                    dragItem.style.opacity = '';
+                    dragItem.classList.remove('dragging');
                 }
 
-                // 尝试播放
-                player.play().catch(e => {
-                    console.log("请手动点击播放");
-                });
+                // 清理占位符
+                if (placeholder) {
+                    placeholder.remove();
+                    placeholder = null;
+                }
+
+                dragItem = null;
             }
 
-            // 获取拖拽后的位置元素
+            // 为电脑添加拖拽放置区域事件
+            playlist.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                if (!dragItem) return;
+
+                const afterElement = getDragAfterElement(playlist, e.clientY);
+                const currentElement = document.querySelector('.dragging');
+
+                if (afterElement == null) {
+                    playlist.appendChild(currentElement);
+                } else {
+                    playlist.insertBefore(currentElement, afterElement);
+                }
+            });
+
+            playlist.addEventListener('drop', function(e) {
+                e.preventDefault();
+                if (!dragItem) return;
+
+                const dragEndIndex = Array.from(playlist.children).indexOf(dragItem);
+                if (dragStartIndex !== dragEndIndex && dragEndIndex >= 0) {
+                    // 更新歌曲顺序
+                    if (currentPlayMode === 'random') {
+                        const [movedItem] = shuffledPlaylist.splice(dragStartIndex, 1);
+                        shuffledPlaylist.splice(dragEndIndex, 0, movedItem);
+                    } else {
+                        const [movedItem] = songs.splice(dragStartIndex, 1);
+                        songs.splice(dragEndIndex, 0, movedItem);
+                    }
+
+                    // 重新生成播放列表
+                    generatePlaylist();
+
+                    // 保持当前播放歌曲的高亮状态
+                    const currentItem = document.querySelector('.song-item.active');
+                    if (currentItem) {
+                        const currentIndex = parseInt(currentItem.dataset.index);
+                        if (currentIndex >= 0) {
+                            const newItems = document.querySelectorAll('.song-item');
+                            newItems[currentIndex].classList.add('active');
+                        }
+                    }
+                }
+            });
+
+            // 获取拖拽后的位置元素（电脑专用）
             function getDragAfterElement(container, y) {
                 const draggableElements = [...container.querySelectorAll('.song-item:not(.dragging)')];
 
@@ -931,6 +1147,44 @@
                 }, { offset: Number.NEGATIVE_INFINITY }).element;
             }
 
+            // 播放指定索引的歌曲
+            function playSong(index) {
+                const currentSongs = currentPlayMode === 'random' ? shuffledPlaylist : songs;
+                if (index >= currentSongs.length) return;
+
+                currentSongIndex = index;
+                const song = currentSongs[currentSongIndex];
+                player.src = song.url;
+                songTitle.textContent = song.title;
+                songArtist.textContent = song.artist;
+
+                // 尝试播放
+                player.play().catch(e => {
+                    console.log("请手动点击播放");
+                });
+
+                // 更新高亮状态
+                updateActiveSong();
+            }
+
+            // 更新当前播放歌曲的高亮状态
+            function updateActiveSong() {
+                document.querySelectorAll('.song-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+
+                const songItems = document.querySelectorAll('.song-item');
+                if (songItems[currentSongIndex]) {
+                    songItems[currentSongIndex].classList.add('active');
+
+                    // 滚动到可见区域
+                    songItems[currentSongIndex].scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }
+            }
+
             // 初始化随机播放列表
             function initShuffledPlaylist() {
                 shuffledPlaylist = [...songs];
@@ -943,11 +1197,6 @@
             // 播放结束处理
             player.addEventListener('ended', function() {
                 const currentSongs = currentPlayMode === 'random' ? shuffledPlaylist : songs;
-                const currentItem = document.querySelector('.song-item.active');
-
-                if (!currentItem) return;
-
-                let nextIndex = parseInt(currentItem.dataset.index);
 
                 switch (currentPlayMode) {
                     case 'loop':
@@ -958,16 +1207,16 @@
 
                     case 'random':
                         // 随机播放，播放下一个随机歌曲
-                        nextIndex = (nextIndex + 1) % currentSongs.length;
-                        if (nextIndex === 0) initShuffledPlaylist(); // 如果播完一轮，重新洗牌
-                        playSong(nextIndex);
+                        currentSongIndex = (currentSongIndex + 1) % currentSongs.length;
+                        if (currentSongIndex === 0) initShuffledPlaylist(); // 如果播完一轮，重新洗牌
+                        playSong(currentSongIndex);
                         break;
 
                     case 'order':
                     default:
                         // 顺序播放，播放下一个
-                        if (nextIndex + 1 < currentSongs.length) {
-                            playSong(nextIndex + 1);
+                        if (currentSongIndex + 1 < currentSongs.length) {
+                            playSong(currentSongIndex + 1);
                         }
                         break;
                 }
@@ -1013,8 +1262,8 @@
                     playPromise.then(() => {
                         player.muted = false;
                         // 设置第一首为活跃状态
-                        const firstItem = document.querySelector('.song-item');
-                        if (firstItem) firstItem.classList.add('active');
+                        currentSongIndex = 0;
+                        updateActiveSong();
                     }).catch(error => {
                         player.muted = false;
                     });
